@@ -65,7 +65,7 @@
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" class="flex items-center gap-1.5 hover:text-white">
                             <span class="w-6 h-6 rounded-full bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center">
-                                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                                {{ strtoupper(substr(auth()->user()?->name ?? '?', 0, 1)) }}
                             </span>
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -75,7 +75,7 @@
                              class="absolute right-0 mt-2 w-52 bg-white text-slate-700 border border-slate-200 rounded-lg shadow-lg py-1">
                             <a href="{{ route('library.index') }}" class="block px-4 py-2 hover:bg-slate-50">My Library</a>
 
-                            @if(auth()->user()->isSeller())
+                            @if(auth()->user()?->isSeller())
                                 <a href="{{ route('seller.dashboard') }}" class="block px-4 py-2 hover:bg-slate-50">Seller Dashboard</a>
                                 <a href="{{ route('seller.products.index') }}" class="block px-4 py-2 hover:bg-slate-50">My Products</a>
                                 <a href="{{ route('seller.payouts.index') }}" class="block px-4 py-2 hover:bg-slate-50">Payouts</a>
@@ -83,7 +83,7 @@
                                 <a href="{{ route('seller.apply.form') }}" class="block px-4 py-2 hover:bg-slate-50">Become a Seller</a>
                             @endif
 
-                            @if(auth()->user()->is_admin)
+                            @if(auth()->user()?->is_admin)
                                 <div class="border-t my-1"></div>
                                 <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 hover:bg-slate-50 text-indigo-600 font-medium">Admin Panel</a>
                             @endif
