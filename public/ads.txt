@@ -1,0 +1,10 @@
+# This file is required by Google AdSense once you have a publisher account.
+# Replace the line below with the exact line Google gives you in your
+# AdSense dashboard (Sites > your domain > "View instructions") —
+# it will look like this, with YOUR real publisher ID:
+#
+# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+#
+# Until you have a real AdSense account and publisher ID, leave this file
+# as-is (commented out) — do NOT invent a fake publisher ID, it won't work
+# and Google will flag it during review.
