@@ -4,6 +4,7 @@ namespace App\Http\Resources\Api\V1;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
 class ReviewResource extends JsonResource
 {
@@ -12,9 +13,9 @@ class ReviewResource extends JsonResource
         return [
             'id'         => $this->id,
             'rating'     => (int) $this->rating,
-            'comment'    => data_get($this, 'comment') ?? data_get($this, 'body'),
-            'author'     => optional($this->user)->name,
-            'created_at' => $this->created_at?->toIso8601String(),
+            'comment'    => $this->comment,
+            'author'     => $this->author_name,
+            'created_at' => $this->created_at ? Carbon::parse($this->created_at)->toIso8601String() : null,
         ];
     }
 }

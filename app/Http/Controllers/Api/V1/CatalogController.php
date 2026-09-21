@@ -14,13 +14,16 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
  * Read-only browsing, equivalent to the public Blade pages.
+ * Columns verified against the SQL dump (regular_price, average_rating, sort_order ...).
  */
 class CatalogController extends Controller
 {
     public function categories(): AnonymousResourceCollection
     {
         $categories = Category::query()
+            ->where('is_active', true)
             ->withCount(['products' => fn (Builder $q) => $this->onlyApproved($q)])
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
@@ -38,58 +41,72 @@ class CatalogController extends Controller
             'per_page'  => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
-        $query = $this->onlyApproved(Product::query())
-            ->with('category')
-            ->withAvg('reviews', 'rating')
-            ->withCount('reviews');
+        $query = $this->onlyApproved(Product::query());
 
         if (! empty($params['category'])) {
-            $query->whereHas('category', fn (Builder $q) => $q->where('slug', $params['category']));
+            $category = Category::where('slug', $params['category'])->first();
+            if ($category) {
+                // A parent category also shows its sub-categories' products.
+                $ids = Category::where('parent_id', $category->id)->pluck('id')->push($category->id);
+                $query->whereIn('products.category_id', $ids);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         if (! empty($params['q'])) {
             $term = '%' . addcslashes($params['q'], '%_\\') . '%';
             $query->where(fn (Builder $q) => $q
-                ->where('title', 'like', $term)
-                ->orWhere('description', 'like', $term));
+                ->where('products.title', 'like', $term)
+                ->orWhere('products.short_description', 'like', $term)
+                ->orWhere('products.description', 'like', $term));
         }
 
         if (isset($params['min_price'])) {
-            $query->where('price', '>=', $params['min_price']);
+            $query->where('products.regular_price', '>=', $params['min_price']);
         }
         if (isset($params['max_price'])) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->where('products.regular_price', '<=', $params['max_price']);
         }
 
         match ($params['sort'] ?? 'newest') {
-            'popular'    => $query->orderByDesc('sales_count'),
-            'price_asc'  => $query->orderBy('price'),
-            'price_desc' => $query->orderByDesc('price'),
-            default      => $query->latest(),
+            'popular'    => $query->orderByDesc('products.sales_count'),
+            'price_asc'  => $query->orderBy('products.regular_price'),
+            'price_desc' => $query->orderByDesc('products.regular_price'),
+            default      => $query->orderByRaw('COALESCE(products.published_at, products.created_at) DESC')
+                                  ->orderByDesc('products.id'),
         };
 
-        return ProductResource::collection($query->paginate($params['per_page'] ?? 20)->withQueryString());
+        $page = $query->paginate($params['per_page'] ?? 20)->withQueryString();
+        $this->attachCategories($page->getCollection());
+
+        return ProductResource::collection($page);
     }
 
     public function show(string $slug): ProductDetailResource
     {
         $product = $this->onlyApproved(Product::query())
-            ->where('slug', $slug)
-            ->with('category')
-            ->withAvg('reviews', 'rating')
-            ->withCount('reviews')
+            ->where('products.slug', $slug)
             ->firstOrFail();
+
+        $this->attachCategories(collect([$product]));
 
         return new ProductDetailResource($product);
     }
 
-    /**
-     * ASSUMPTION: a product is publicly visible when status = 'approved'.
-     * If the web catalog uses a scope (e.g. Product::approved()), call that
-     * here instead so the app and website always agree.
-     */
+    /** Publicly visible = approved and not soft-deleted. */
     private function onlyApproved(Builder $query): Builder
     {
-        return $query->where('status', 'approved');
+        return $query->where('products.status', 'approved')->whereNull('products.deleted_at');
+    }
+
+    /** One extra query instead of relying on a relation name. */
+    private function attachCategories($products): void
+    {
+        $categories = Category::whereIn('id', $products->pluck('category_id')->unique())->get()->keyBy('id');
+
+        foreach ($products as $product) {
+            $product->setRelation('category', $categories->get($product->category_id));
+        }
     }
 }

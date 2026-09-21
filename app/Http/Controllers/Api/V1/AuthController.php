@@ -66,7 +66,15 @@ class AuthController extends Controller
             ]);
         }
 
-        // If the web app blocks suspended/banned users, add the same check here.
+        // users.status is active / suspended / banned
+        $status = $user->status ?? 'active';
+        $status = $status instanceof \BackedEnum ? $status->value : $status;
+        if ($status !== 'active') {
+            return response()->json([
+                'message' => 'Your account is not active. Please contact support.',
+                'code'    => 'account_inactive',
+            ], 403);
+        }
 
         if ($user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail()) {
             return response()->json([

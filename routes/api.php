@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CatalogController;
 use App\Http\Controllers\Api\V1\LibraryController;
 use App\Http\Controllers\Api\V1\ReviewController;
+use App\Http\Middleware\EnsureApiUserActive;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -25,9 +26,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::post('reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:5,1')->name('reset');
 
         Route::middleware('auth:sanctum')->group(function () {
-            Route::get('me',            [AuthController::class, 'me'])->name('me');
+            // logout works even for suspended users so they can sign out
             Route::post('logout',       [AuthController::class, 'logout'])->name('logout');
             Route::post('email/resend', [AuthController::class, 'resendVerification'])->middleware('throttle:3,1')->name('resend');
+            Route::get('me',            [AuthController::class, 'me'])->middleware(EnsureApiUserActive::class)->name('me');
         });
     });
 
@@ -38,7 +40,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     Route::get('products/{slug}/reviews', [ReviewController::class, 'index'])->name('products.reviews.index');
 
     // ---- Authenticated buyer -------------------------------------------
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', EnsureApiUserActive::class])->group(function () {
         Route::post('products/{slug}/reviews',           [ReviewController::class, 'store'])->name('products.reviews.store');
         Route::get('library',                            [LibraryController::class, 'index'])->name('library.index');
         Route::post('library/{productId}/download-link', [LibraryController::class, 'downloadLink'])->whereNumber('productId')->name('library.link');

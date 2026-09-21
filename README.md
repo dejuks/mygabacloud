@@ -10,9 +10,10 @@ controllers, `routes/web.php` and session login are **not modified**.
 | `routes/api.php` | All URLs under `/api/v1`, route names `api.v1.*` |
 | `app/Http/Controllers/Api/V1/AuthController.php` | Register, login, logout, me, forgot/reset password, resend verification (Sanctum tokens) |
 | `.../CatalogController.php` | Categories, product list (search/filter/sort/paginate), product detail |
-| `.../ReviewController.php` | List reviews, post a review (verified owners only) |
+| `.../ReviewController.php` | List reviews, post a review (verified buyers only) |
 | `.../LibraryController.php` | Purchased items, signed download link, ZIP download |
 | `app/Http/Resources/Api/V1/*` | JSON shape of each model (the only place field names are mapped) |
+| `app/Http/Middleware/EnsureApiUserActive.php` | Blocks suspended/banned users on API calls |
 
 ## Install (4 steps)
 
@@ -79,28 +80,30 @@ curl -X POST https://gabacloud.com/api/v1/auth/login \
   -d '{"email":"buyer@marketplace.test","password":"password","device_name":"pixel"}'
 ```
 
-## Assumptions (I could not read `app/` or `routes/`)
+## Verified against your database (v1.1)
 
-GitHub blocked automated access to the repo's `app/` and `routes/` folders, so
-I inferred the schema from the README and the website. Please treat these as
-**unverified**:
+Checked against `gabaclou_db` from the SQL dump you uploaded:
 
-- Models exist as `App\Models\{Product, Category, License, Review}`.
-- `Product`: `title, slug, description, price, sale_price, extended_price, thumbnail, demo_url, status ('approved'), sales_count, file_path`; relations `category`, `reviews`, optional `seller`.
-- `Category`: `name, slug`, relation `products`.
-- `License`: `user_id, product_id, license_key, type`, relation `product`.
-- `Review`: `user_id, product_id, rating, comment`, relation `user`.
-- Product files live on the `private` disk at `products.file_path`.
+| Topic | Rule used by the API |
+|---|---|
+| Who owns a product | `licenses.buyer_id = user` and `licenses.status = 'active'` |
+| Public product | `products.status = 'approved'` and `deleted_at IS NULL` |
+| Prices | `regular_price`; `sale_price` only while `sale_ends_at` is empty or in the future |
+| Ratings | `average_rating` / `reviews_count` columns (recalculated after an API review) |
+| Downloads | newest `product_files` row with `scan_status = 'clean'` and `integrity_status != 'corrupted'`, read from that row's `disk` and `path` |
+| Reviews | need an active licence with an `order_item_id` in a paid order (reviews.order_item_id is NOT NULL) |
+| Accounts | `users.status` must be `active` (checked at login and on every protected call) |
+| Categories | `is_active = 1`, ordered by `sort_order`; a parent shows its sub-categories' products |
 
-Fastest way to correct them: run `php artisan model:show Product` (and the same for
-`Category`, `License`, `Review`, `User`) and send me the output.
+## Still assumed (could not see the PHP code)
 
-## Security note – must review before going live
-
-`LibraryController::resolveDownloadableFile()` is a placeholder. The website
-scans uploads with ClamAV and leaves files `pending` until cleared, so the web
-download controller must already check that status. **Copy that check into the
-API**, otherwise the app could serve a file the website would refuse.
+- Model classes `App\Models\{Product, Category, License, Review}` exist. (`License` and `Category` are confirmed by earlier runs.)
+- The `private` disk configured in `config/filesystems.php` holds the product files.
+- Thumbnails are served from `/storage/<thumbnail>` (public disk + `storage:link`).
+- Your website's own download controller may apply extra rules (e.g. `duplicate_of_file_id`,
+  refunded order items). If so, add the same conditions in
+  `LibraryController::findDownloadableFile()`.
+- The API does not increase `views_count` or write `activity_logs` rows. Say so if you want that.
 
 ## Not built yet (needs the real code to do safely)
 

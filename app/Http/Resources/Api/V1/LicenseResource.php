@@ -11,9 +11,12 @@ class LicenseResource extends JsonResource
     {
         return [
             'id'          => $this->id,
-            'license_key' => data_get($this, 'license_key') ?? data_get($this, 'key'),
-            'type'        => data_get($this, 'type') ?? data_get($this, 'license_type'),
-            'product'     => new ProductResource($this->whenLoaded('product')),
+            'license_key' => $this->license_key,
+            'type'        => $this->type,
+            'status'      => $this->status,
+            'product'     => $this->relationLoaded('product') && $this->product
+                                ? new ProductResource($this->product)
+                                : null,
             'acquired_at' => $this->created_at?->toIso8601String(),
         ];
     }

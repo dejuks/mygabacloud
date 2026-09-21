@@ -10,25 +10,24 @@ use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
 {
     public function index(string $slug): AnonymousResourceCollection
     {
-        $product = Product::where('slug', $slug)->firstOrFail();
+        $product = $this->publicProduct($slug);
 
-        $reviews = Review::query()
-            ->where('product_id', $product->id)
-            ->with('user:id,name')
-            ->latest()
-            ->paginate(20);
-
-        return ReviewResource::collection($reviews);
+        return ReviewResource::collection(
+            $this->reviewQuery()->where('reviews.product_id', $product->id)
+                ->orderByDesc('reviews.id')
+                ->paginate(20)
+        );
     }
 
     public function store(Request $request, string $slug): JsonResponse
     {
-        $product = Product::where('slug', $slug)->firstOrFail();
+        $product = $this->publicProduct($slug);
         $user    = $request->user();
 
         $data = $request->validate([
@@ -36,24 +35,65 @@ class ReviewController extends Controller
             'comment' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        // Verified purchasers only, same rule as the website.
-        $owns = License::where('user_id', $user->id)->where('product_id', $product->id)->exists();
-        abort_unless($owns, 403, 'Only customers who own this product can review it.');
+        // reviews.order_item_id is NOT NULL: only real purchases can be reviewed
+        // (free-unlock licences have no order item).
+        $license = License::where('buyer_id', $user->id)
+            ->where('product_id', $product->id)
+            ->where('status', 'active')
+            ->whereNotNull('order_item_id')
+            ->first();
 
-        if (Review::where('user_id', $user->id)->where('product_id', $product->id)->exists()) {
+        $paid = $license && DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('order_items.id', $license->order_item_id)
+            ->where('order_items.status', 'completed')
+            ->whereIn('orders.status', ['paid', 'partially_refunded'])
+            ->exists();
+
+        abort_unless($paid, 403, 'Only customers who purchased this product can review it.');
+
+        if (DB::table('reviews')->where('user_id', $user->id)->where('product_id', $product->id)->exists()) {
             return response()->json(['message' => 'You have already reviewed this product.'], 409);
         }
 
-        // ASSUMPTION: the text column is "comment". If it is "body", change the key below.
-        $review = Review::create([
-            'user_id'    => $user->id,
-            'product_id' => $product->id,
-            'rating'     => $data['rating'],
-            'comment'    => $data['comment'] ?? null,
+        // Model save (not raw insert) so any observers on Review still run.
+        $review = new Review();
+        $review->forceFill([
+            'product_id'    => $product->id,
+            'user_id'       => $user->id,
+            'order_item_id' => $license->order_item_id,
+            'rating'        => $data['rating'],
+            'comment'       => $data['comment'] ?? null,
+        ])->save();
+
+        // Keep the denormalised counters on products in sync (safe to repeat).
+        $stats = DB::table('reviews')->where('product_id', $product->id)
+            ->selectRaw('COUNT(*) as c, AVG(rating) as a')->first();
+        DB::table('products')->where('id', $product->id)->update([
+            'reviews_count'  => (int) $stats->c,
+            'average_rating' => round((float) $stats->a, 2),
         ]);
 
-        return (new ReviewResource($review->load('user:id,name')))
-            ->response()
-            ->setStatusCode(201);
+        $created = $this->reviewQuery()->where('reviews.id', $review->id)->first();
+
+        return (new ReviewResource($created))->response()->setStatusCode(201);
+    }
+
+    private function publicProduct(string $slug): object
+    {
+        $product = DB::table('products')
+            ->where('slug', $slug)->where('status', 'approved')->whereNull('deleted_at')
+            ->first(['id']);
+
+        abort_unless($product, 404, 'Product not found.');
+
+        return $product;
+    }
+
+    private function reviewQuery()
+    {
+        return DB::table('reviews')
+            ->join('users', 'users.id', '=', 'reviews.user_id')
+            ->select('reviews.id', 'reviews.rating', 'reviews.comment', 'reviews.created_at', 'users.name as author_name');
     }
 }
