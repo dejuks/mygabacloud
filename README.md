@@ -1,115 +1,100 @@
-# Gaba Cloud – Mobile API layer (v1)
+# "Download the App" section (footer + admin panel)
 
-New, isolated JSON API for the Android app. The Blade website, its web
-controllers, `routes/web.php` and session login are **not modified**.
+A self-contained feature: an admin page to configure the download button,
+and a partial you can drop into the footer or any page. It does not touch
+your existing files except the two spots in "Wire it in" below.
 
-## What is added (all new files)
+## What it does
 
-| File | Purpose |
-|---|---|
-| `routes/api.php` | All URLs under `/api/v1`, route names `api.v1.*` |
-| `app/Http/Controllers/Api/V1/AuthController.php` | Register, login, logout, me, forgot/reset password, resend verification (Sanctum tokens) |
-| `.../CatalogController.php` | Categories, product list (search/filter/sort/paginate), product detail |
-| `.../ReviewController.php` | List reviews, post a review (verified buyers only) |
-| `.../LibraryController.php` | Purchased items, signed download link, ZIP download |
-| `app/Http/Resources/Api/V1/*` | JSON shape of each model (the only place field names are mapped) |
-| `app/Http/Middleware/EnsureApiUserActive.php` | Blocks suspended/banned users on API calls |
+- Admin turns the whole section on/off, sets a heading/subheading.
+- **Android:** admin picks one source — upload an APK to the server, or paste
+  a Google Play / Amazon Appstore / other URL. Only one is shown to visitors,
+  whichever is selected.
+- **iOS:** App Store URL only (Apple doesn't allow direct APK-style installs).
+- APK downloads are **counted** and shown to the admin.
+- The APK is stored on the **private** disk and served through a counted
+  route, not as a public static file — this stops search engines and random
+  crawlers from finding and hot-linking an old APK.
 
-## Install (4 steps)
+## 1. Install
+
+Copy these into your Laravel project, keeping the same folder paths:
+
+```
+database/migrations/2026_09_22_045215_create_app_download_settings_table.php
+app/Models/AppDownloadSetting.php
+app/Http/Controllers/Admin/AppDownloadSettingController.php
+resources/views/admin/app-download/edit.blade.php
+resources/views/partials/download-app-badge.blade.php
+```
+
+Then:
 
 ```bash
-# 1. Sanctum + routes/api.php registration (Laravel 12)
-php artisan install:api      # answer "yes" to run migrations
+php artisan migrate
 ```
-Copy this package's `routes/api.php` over the one it generated, and copy the
-`app/` folder into your project.
 
-**2. Add one trait to `app/Models/User.php`** (the only existing file touched):
+`routes/app-download-routes.php` is **not** meant to be copied as-is — it's a
+snippet. Open it and copy its two blocks into your real `routes/web.php`
+(see "Wire it in" below).
+
+## 2. Wire it in (the two things I can't do without seeing your code)
+
+**a) Admin routes.** I don't know your admin route group or middleware. Add
+inside your existing admin-auth group:
 ```php
-use Laravel\Sanctum\HasApiTokens;
-
-class User extends Authenticatable /* implements MustVerifyEmail */
-{
-    use HasApiTokens, HasFactory, Notifiable;   // add HasApiTokens
+Route::get('app-download', [AppDownloadSettingController::class, 'edit'])->name('app-download.edit');
+Route::post('app-download', [AppDownloadSettingController::class, 'update'])->name('app-download.update');
 ```
-> Your README says the package overwrites `User.php` on install. If you re-copy
-> the package later, re-add `HasApiTokens`.
-
-**3. Make API errors always JSON** in `bootstrap/app.php` (keep your existing
-middleware-alias code from `bootstrap-middleware.md`; only add this block):
+Add the public route at the top level of `web.php` (no auth):
 ```php
-->withExceptions(function (Exceptions $exceptions) {
-    $exceptions->shouldRenderJsonWhen(
-        fn ($request, $e) => $request->is('api/*') || $request->expectsJson()
-    );
-})
-```
-Also confirm `withRouting(...)` now has both `web:` and `api:` entries.
-
-**4. Optional token lifetime** – `config/sanctum.php`: `'expiration' => 60 * 24 * 30,` (30 days).
-
-Verify nothing collides:
-```bash
-php artisan route:list --path=api
+Route::get('/download-app/android.apk', [AppDownloadSettingController::class, 'downloadApk'])
+    ->name('app-download.android.apk');
 ```
 
-## Endpoints
+**b) Admin layout.** `edit.blade.php` starts with `@extends('layouts.admin')`
+and a `@section('content')`. If your admin panel's layout file has a
+different name or section, change that one line.
 
-| Method | URL | Auth | Notes |
-|---|---|---|---|
-| POST | `/api/v1/auth/register` | – | `name, email, password, password_confirmation, device_name?` |
-| POST | `/api/v1/auth/login` | – | Returns `token`. `403 code=email_unverified` if not verified |
-| POST | `/api/v1/auth/forgot-password` | – | Reset email link opens the website page |
-| POST | `/api/v1/auth/reset-password` | – | `token, email, password, password_confirmation` |
-| GET | `/api/v1/auth/me` | Bearer | |
-| POST | `/api/v1/auth/logout` | Bearer | Revokes this device's token |
-| POST | `/api/v1/auth/email/resend` | Bearer | |
-| GET | `/api/v1/categories` | – | |
-| GET | `/api/v1/products` | – | `category, q, sort=popular\|newest\|price_asc\|price_desc, min_price, max_price, per_page, page` |
-| GET | `/api/v1/products/{slug}` | – | |
-| GET/POST | `/api/v1/products/{slug}/reviews` | POST needs Bearer | |
-| GET | `/api/v1/library` | Bearer | Purchased items + license keys |
-| POST | `/api/v1/library/{productId}/download-link` | Bearer | Returns 5-minute signed URL |
-| GET | `/api/v1/library/{productId}/download` | signed URL | Streams the ZIP |
+**c) Add a link in your admin nav/sidebar** to `route('admin.app-download.edit')`
+(the route name depends on your `name()` prefix — adjust to match).
 
-Send `Accept: application/json` and `Authorization: Bearer <token>` from Android.
+## 3. Show it in the footer
 
-```bash
-curl -X POST https://gabacloud.com/api/v1/auth/login \
-  -H "Accept: application/json" -H "Content-Type: application/json" \
-  -d '{"email":"buyer@marketplace.test","password":"password","device_name":"pixel"}'
+In your footer Blade file, add one line:
+```blade
+@include('partials.download-app-badge')
 ```
+For a smaller version elsewhere (e.g. a homepage banner):
+```blade
+@include('partials.download-app-badge', ['style' => 'compact'])
+```
+The section is invisible automatically until an admin turns it on and sets
+at least one working link.
 
-## Verified against your database (v1.1)
+## 4. Use it
 
-Checked against `gabaclou_db` from the SQL dump you uploaded:
+Go to the admin page you linked in step 2c:
+1. Check **"Show the download section on the website"**.
+2. Under Android, choose a source:
+   - **Upload an APK** — pick the `.apk` file (up to 500 MB), optionally set a version name.
+   - **Google Play / Amazon Appstore / Other URL** — paste the link.
+3. Optionally enable iOS and paste the App Store link.
+4. Save. The footer badge updates immediately (settings are cached and the
+   cache is cleared on save).
 
-| Topic | Rule used by the API |
-|---|---|
-| Who owns a product | `licenses.buyer_id = user` and `licenses.status = 'active'` |
-| Public product | `products.status = 'approved'` and `deleted_at IS NULL` |
-| Prices | `regular_price`; `sale_price` only while `sale_ends_at` is empty or in the future |
-| Ratings | `average_rating` / `reviews_count` columns (recalculated after an API review) |
-| Downloads | newest `product_files` row with `scan_status = 'clean'` and `integrity_status != 'corrupted'`, read from that row's `disk` and `path` |
-| Reviews | need an active licence with an `order_item_id` in a paid order (reviews.order_item_id is NOT NULL) |
-| Accounts | `users.status` must be `active` (checked at login and on every protected call) |
-| Categories | `is_active = 1`, ordered by `sort_order`; a parent shows its sub-categories' products |
+## Notes
 
-## Still assumed (could not see the PHP code)
-
-- Model classes `App\Models\{Product, Category, License, Review}` exist. (`License` and `Category` are confirmed by earlier runs.)
-- The `private` disk configured in `config/filesystems.php` holds the product files.
-- Thumbnails are served from `/storage/<thumbnail>` (public disk + `storage:link`).
-- Your website's own download controller may apply extra rules (e.g. `duplicate_of_file_id`,
-  refunded order items). If so, add the same conditions in
-  `LibraryController::findDownloadableFile()`.
-- The API does not increase `views_count` or write `activity_logs` rows. Say so if you want that.
-
-## Not built yet (needs the real code to do safely)
-
-Checkout/orders (Stripe, PayPal, manual CBE/Telebirr/USDT with screenshot
-upload), coupons, cart, free-unlock (YouTube) requests, seller dashboard /
-product upload / wallet / payouts, and push notifications. These all call
-existing services (`OrderFulfilmentService`, the gateway classes), so I need
-their real signatures before writing controllers that reuse them instead of
-duplicating money logic.
+- **Amazon Appstore:** there's no separate "Amazon" app format — it's the
+  same APK, submitted through Amazon's developer console. The Amazon field
+  here is just a link to your Amazon Appstore listing page.
+- **500&nbsp;MB upload limit** is set in the controller's validation
+  (`max:512000` in KB). Your server's `upload_max_filesize` and
+  `post_max_size` in `php.ini` must also allow a file that large, or the
+  upload will fail before Laravel sees it.
+- **Changed my mind on APK signing:** nothing here checks that the uploaded
+  file is actually a valid signed APK. Consider only uploading builds you
+  generated from **Build → Generate Signed App Bundle/APK** in Android Studio.
+- If you'd rather keep the APK on the **public** disk with a plain static
+  link (no download counter, no ability to swap files without re-uploading
+  under the same name), that's a simpler variant — tell me and I'll adjust it.

@@ -28,7 +28,8 @@ use App\Http\Controllers\Admin\{
     CategoryController,
     ReportController,
     ManualPaymentController,
-    EngagementApprovalController
+    EngagementApprovalController,
+    AppDownloadSettingController
 };
 use App\Http\Controllers\Webhooks\StripeWebhookController;
 use App\Http\Controllers\Webhooks\PayPalWebhookController;
@@ -71,6 +72,10 @@ Route::get('/contact', [PageController::class, 'contact'])->name('pages.contact'
 Route::post('/contact', [PageController::class, 'submitContact'])->name('pages.contact.submit');
 Route::get('/privacy-policy', [PageController::class, 'privacy'])->name('pages.privacy');
 Route::get('/terms-of-service', [PageController::class, 'terms'])->name('pages.terms');
+
+// Mobile app download - APK stored privately, served here so downloads can be counted
+Route::get('/download-app/android.apk', [AppDownloadSettingController::class, 'downloadApk'])
+    ->name('app-download.android.apk');
 
 /*
 |--------------------------------------------------------------------------
@@ -213,6 +218,10 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::post('/engagement-unlocks/{engagementUnlock}/approve', [EngagementApprovalController::class, 'approve'])->name('engagement.approve');
         Route::post('/engagement-unlocks/{engagementUnlock}/reject', [EngagementApprovalController::class, 'reject'])->name('engagement.reject');
         Route::post('/engagement-unlocks/{engagementUnlock}/revoke', [EngagementApprovalController::class, 'revoke'])->name('engagement.revoke');
+
+        // Mobile app download settings (footer "Download the App" section)
+        Route::get('/app-download', [AppDownloadSettingController::class, 'edit'])->name('app-download.edit');
+        Route::put('/app-download', [AppDownloadSettingController::class, 'update'])->name('app-download.update');
     });
 
 /*

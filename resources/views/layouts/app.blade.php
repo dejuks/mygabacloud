@@ -162,8 +162,9 @@
 </main>
 
 <footer class="bg-slate-900 text-slate-400 mt-12">
-    <div class="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
-        <div>
+
+    <div class="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-5 gap-8 text-sm">
+        <div class="md:col-span-1">
             <p class="text-white font-bold text-lg mb-2">{{ config('app.name') }}</p>
             <p class="text-slate-400">Digital scripts, templates, and themes built by developers, for developers.</p>
         </div>
@@ -195,8 +196,46 @@
                 <a href="{{ route('pages.contact') }}" class="block hover:text-white">Contact us</a>
             </div>
         </div>
+
+        {{-- Get the app: shown only when at least one store link is configured,
+             so the badges never point nowhere on environments without an app yet. --}}
+        @if(config('services.app.ios_url') || config('services.app.android_url'))
+            <div>
+                <p class="text-white font-medium mb-2">Get the App</p>
+                <div class="flex flex-col gap-2">
+                    @if(config('services.app.ios_url'))
+                        <a href="{{ config('services.app.ios_url') }}"
+                           target="_blank" rel="noopener noreferrer"
+                           class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-3 py-2 transition-colors">
+                            <svg class="w-6 h-6 text-white shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8.96-.16 1.9-.87 3.06-.75 1.36.12 2.4.66 3.06 1.7-2.75 1.65-2.19 5.53.45 6.61-.5 1.1-1.16 2.16-1.65 2.61Zm-4.02-13c-.09-1.98 1.55-3.63 3.52-3.78.24 2.14-1.67 3.98-3.52 3.78Z"/>
+                            </svg>
+                            <span class="text-left leading-tight">
+                                <span class="block text-[10px] text-slate-300">Download on the</span>
+                                <span class="block text-sm font-semibold text-white -mt-0.5">App Store</span>
+                            </span>
+                        </a>
+                    @endif
+
+                    @if(config('services.app.android_url'))
+                        <a href="{{ config('services.app.android_url') }}"
+                           target="_blank" rel="noopener noreferrer"
+                           class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-3 py-2 transition-colors">
+                            <svg class="w-6 h-6 text-white shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M3.61 1.81a1 1 0 00-.61.92v18.54a1 1 0 00.61.92l10.36-10.19L3.61 1.81zM15.94 12l2.6-2.56 2.5 1.4a1.49 1.49 0 010 2.32l-2.5 1.4-2.6-2.56zM4.7 1.15l9.98 9.83 2.4-2.36L5.65.72a1 1 0 00-.95.43zM4.7 22.85a1 1 0 00.95.43l11.43-6.9-2.4-2.36-9.98 9.83z"/>
+                            </svg>
+                            <span class="text-left leading-tight">
+                                <span class="block text-[10px] text-slate-300">Get it on</span>
+                                <span class="block text-sm font-semibold text-white -mt-0.5">Google Play</span>
+                            </span>
+                        </a>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
     <div class="border-t border-slate-800">
+
         <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
             <span>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</span>
             <div class="flex gap-4">

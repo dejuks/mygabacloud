@@ -34,6 +34,7 @@
         ['route' => 'admin.payouts.index', 'label' => 'Payouts', 'icon' => 'wallet', 'badge' => $pendingPayoutsCount ?? null],
         ['route' => 'admin.categories.index', 'label' => 'Categories', 'icon' => 'tag'],
         ['route' => 'admin.reports.index', 'label' => 'Reports', 'icon' => 'chart'],
+        ['route' => 'admin.app-download.edit', 'label' => 'App Download', 'icon' => 'phone'],
         ['route' => 'admin.settings.index', 'label' => 'Settings', 'icon' => 'gear'],
     ];
 
@@ -46,6 +47,7 @@
         'wallet' => '<path d="M21 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 12a2 2 0 000 4h4v-4h-4z" stroke-linecap="round" stroke-linejoin="round"/>',
         'chart' => '<path d="M3 3v18h18M8 17V9m5 8V5m5 12v-6" stroke-linecap="round" stroke-linejoin="round"/>',
         'tag' => '<path d="M20.59 13.41L11 3.83a2 2 0 00-1.42-.58H4a1 1 0 00-1 1v5.58a2 2 0 00.59 1.42l9.58 9.58a2 2 0 002.83 0l4.59-4.59a2 2 0 000-2.83z" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+        'phone' => '<rect x="7" y="2" width="10" height="20" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 18h2" stroke-linecap="round"/><path d="M12 6v6m0 0l-2.5-2.5M12 12l2.5-2.5" stroke-linecap="round" stroke-linejoin="round"/>',
         'gear' => '<path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke-linecap="round" stroke-linejoin="round"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.16.31.49.51.85.51a1.65 1.65 0 001.51-1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke-linecap="round" stroke-linejoin="round"/>',
     ];
 @endphp
